@@ -1,14 +1,13 @@
 package io.github.karino2.texttl
 
-import android.annotation.SuppressLint
-import android.content.ContentResolver
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.provider.DocumentsContract
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,37 +19,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.documentfile.provider.DocumentFile
+import androidx.lifecycle.lifecycleScope
 import io.github.karino2.texttl.ui.theme.TextTLTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.util.*
 
-// similar to DocumentFile, but store metadata at first query.
-data class FastFile(val uri: Uri, val name: String, val lastModified: Long)
-
-fun DocumentFile.toFastFile() = FastFile(this.uri, this.name ?: "", this.lastModified())
-
-@SuppressLint("Range")
-fun listFiles(resolver: ContentResolver, parent: Uri) : Sequence<FastFile> {
-    val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parent, DocumentsContract.getDocumentId(parent))
-    val cursor = resolver.query(childrenUri, null,
-        null, null, null, null) ?: return emptySequence()
-
-    return sequence {
-        cursor.use {cur ->
-            while(cur.moveToNext()) {
-                val docId = cur.getString(0)
-                val uri = DocumentsContract.buildDocumentUriUsingTree(parent, docId)
-
-                val disp = cur.getString(cur.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME))
-                val lm = cur.getLong(cur.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED))
-                yield(FastFile(uri, disp, lm))
-            }
-        }
-    }
-}
-
-data class Cell(val content: String, val date: Date)
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -71,7 +47,39 @@ class MainActivity : ComponentActivity() {
         fun showMessage(ctx: Context, msg : String) = Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
     }
 
-    val cells = mutableStateOf(listOf(Cell("test1", Date()), Cell("test2", Date())))
+    val cells = mutableStateOf(emptyList<Hitokoto>())
+
+    private var _url : Uri? = null
+
+    private val rootDir: RootDir
+        get() = _url?.let { RootDir(FastFile.fromTreeUri(this, it)) } ?: throw Exception("No url set")
+
+    private fun writeLastUri(uri: Uri) = writeLastUriStr(this, uri.toString())
+    private val lastUri: Uri?
+        get() = lastUriStr(this)?.let { Uri.parse(it) }
+
+    private val getRootDirUrl = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        // if cancel, null coming.
+        uri?.let {
+            contentResolver.takePersistableUriPermission(it,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            writeLastUri(it)
+            openRootDir(it)
+        }
+    }
+
+    fun reloadHitokotos() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val hitokotos = rootDir.listHitokotoFiles().take(30).map { Hitokoto.fromFile(it) }.toList()
+            withContext(Dispatchers.Main) {
+                cells.value = hitokotos
+            }
+        }
+    }
+    private fun openRootDir(url: Uri) {
+        _url = url
+        reloadHitokotos()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,7 +91,13 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colors.background
                 ) {
                     Column(modifier = Modifier.padding(5.dp, 5.dp)) {
-                        ListCells(cells.value)
+                        Column(modifier= Modifier
+                            .padding(0.dp, 10.dp)
+                            .verticalScroll(rememberScrollState())
+                            .weight(weight =1f, fill = false)) {
+                            cells.value.forEach { CellView(it) }
+                        }
+
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End){
                             Button(onClick = {}) {
                                 Text("+", fontSize=23.sp)
@@ -93,11 +107,20 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        try {
+            lastUri?.let {
+                return openRootDir(it)
+            }
+        } catch(_: Exception) {
+            showMessage(this, "Can't open saved dir. Please reopen.")
+        }
+        getRootDirUrl.launch(null)
     }
 }
 
 @Composable
-fun CellView(cell: Cell) {
+fun CellView(cell: Hitokoto) {
     Card(modifier=Modifier.padding(0.dp, 2.dp), border= BorderStroke(2.dp, Color.Black)) {
         Column(modifier= Modifier
             .fillMaxWidth()
@@ -109,11 +132,3 @@ fun CellView(cell: Cell) {
     }
 }
 
-@Composable
-fun ListCells(cells: List<Cell>) {
-    Column(modifier= Modifier
-        .padding(0.dp, 10.dp)
-        .verticalScroll(rememberScrollState())) {
-        cells.forEach { CellView(it) }
-    }
-}
