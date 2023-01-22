@@ -16,8 +16,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
@@ -100,15 +102,31 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    Column(modifier = Modifier.padding(5.dp, 5.dp)) {
+                    Column {
+                        TopAppBar(title = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                IconButton(onClick = {
+                                    showMessage(this@MainActivity, "Reload")
+                                    reloadHitokotos()
+                                }) {
+                                    Icon(painter = painterResource(id = R.drawable.outline_refresh_24), contentDescription = "Reload")
+                                }
+                            }
+                          },
+                        )
+
                         Column(modifier= Modifier
-                            .padding(0.dp, 10.dp)
+                            .padding(13.dp, 5.dp)
                             .verticalScroll(rememberScrollState())
                             .weight(weight =1f, fill = false)) {
                             cells.value.forEach { CellView(it) }
                         }
 
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End){
+                        Row(modifier = Modifier.padding(5.dp, 5.dp).fillMaxWidth(), horizontalArrangement = Arrangement.End){
                             Button(onClick = {
                                 Intent(this@MainActivity, EditActivity::class.java).also {
                                     getEditResult.launch(it)
