@@ -1,5 +1,6 @@
 package io.github.karino2.texttl
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -68,6 +69,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val getEditResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val content = result.data?.getStringExtra("NEW_CONTENT") ?: ""
+            val hitokoto = Hitokoto(content, Date())
+            rootDir.saveHitokoto(hitokoto)
+            cells.value = listOf(hitokoto) + cells.value
+        }
+    }
+
     fun reloadHitokotos() {
         lifecycleScope.launch(Dispatchers.IO) {
             val hitokotos = rootDir.listHitokotoFiles().take(30).map { Hitokoto.fromFile(it) }.toList()
@@ -99,7 +109,11 @@ class MainActivity : ComponentActivity() {
                         }
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End){
-                            Button(onClick = {}) {
+                            Button(onClick = {
+                                Intent(this@MainActivity, EditActivity::class.java).also {
+                                    getEditResult.launch(it)
+                                }
+                            }) {
                                 Text("+", fontSize=23.sp)
                             }
                         }

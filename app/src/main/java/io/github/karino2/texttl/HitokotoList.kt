@@ -8,6 +8,7 @@ import android.provider.DocumentsContract
 import java.io.BufferedWriter
 import java.io.FileInputStream
 import java.io.OutputStreamWriter
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 // similar to DocumentFile, but store metadata at first query.
@@ -193,6 +194,15 @@ class RootDir(val dir: FastFile) {
         val file = dayDir.createFile("text/plain", dispname ) ?: throw Exception("Can't create file: $dispname")
         file.writeText(hitokoto.content)
         return file
+    }
+
+
+    fun saveHitokoto(hitokoto: Hitokoto) : FastFile {
+        val dt = hitokoto.date
+        val yearStr = (1900+dt.year).toString()
+        val monthStr = "%02d".format(dt.month+1)
+        val dayStr = "%02d".format(dt.date)
+        return saveHitokoto(yearStr, monthStr, dayStr, hitokoto)
     }
 
     fun listHitokotoFiles() = sequence {
