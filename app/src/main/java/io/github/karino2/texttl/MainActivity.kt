@@ -142,12 +142,29 @@ class MainActivity : ComponentActivity() {
 
         try {
             lastUri?.let {
-                return openRootDir(it)
+                openRootDir(it)
+
+                if (intent?.action == Intent.ACTION_SEND && intent.type?.startsWith("text/") == true) {
+                    Intent(this@MainActivity, EditActivity::class.java).also { editIntent->
+                        editIntent.putExtra(Intent.EXTRA_TEXT, receivedText(intent))
+                        getEditResult.launch(editIntent)
+                    }
+
+
+                }
+                return
             }
         } catch(_: Exception) {
             showMessage(this, "Can't open saved dir. Please reopen.")
         }
         getRootDirUrl.launch(null)
+    }
+
+    private fun receivedText(intent: Intent) : String {
+        val body = intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
+        return intent.getStringExtra(Intent.EXTRA_SUBJECT)?.let {subject->
+            "${subject} ${body}"
+        } ?: body
     }
 }
 

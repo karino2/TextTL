@@ -30,6 +30,9 @@ class EditActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val defaultText = intent?.getStringExtra(Intent.EXTRA_TEXT) ?: ""
+
         setContent {
             TextTLTheme {
                 // A surface container using the 'background' color from the theme
@@ -38,7 +41,7 @@ class EditActivity : ComponentActivity() {
                     color = MaterialTheme.colors.background
                 ) {
                     Column{
-                        var text by remember { mutableStateOf("") }
+                        var text by remember { mutableStateOf(defaultText) }
 
                         TopAppBar(title={
                                 Row(
