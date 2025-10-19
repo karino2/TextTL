@@ -1,0 +1,3 @@
+TextTL is SNS like app that store each post to individual text files.
+
+You can sync these files by Syncthing or any other sync tool and process it in PC.
